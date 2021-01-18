@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Image cropper</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="Keywords" content="CruzerCrop, Client Side Image Editor, Drag and Drop Upload, Image Crop">
+  <meta name="Description" content="CruzerCrop, Client Side Image Editor, Drag and Drop Upload, Image Crop">
+  <link rel="stylesheet" type="text/css" href="cruzercrop.css">
+	<style type="text/css">
+    /* for demo only*/
+  *, :after, :before, body {
+      -webkit-box-sizing: border-box;
+      box-sizing: border-box;
+  }
+  .fullWidth{width: 100%;float: left}
+    .halfWidth{width: 49%;padding: 10px;float: left}
+    @media screen and (max-width: 600px) {
+      .halfWidth {
+        width: 100%;
+      }
+    }
+</style>
+</head>
+<body>
+<form id="form">
+  <h1>CruzerCrop: Client Side Image Editor</h1>
+  <div class="fullWidth">
+    <div class="halfWidth">
+      <input id="fileSelector" class="cruzerImg" type="file" accept=".jpg, .jpeg, .png"/>
+    </div>
+    <div class="halfWidth">
+      <input id="fileSelector2" class="cruzerImg" type="file" accept=".jpg, .jpeg, .png"/>
+    </div>
+  </div>
+
+  <div>
+    <input type="submit" value="Upload form data and image" />
+  </div>
+</form>
+
+<script src="cropper.min.js"></script>
+<!-- <script src="cruzercrop.js"></script> -->
+
+<script type="text/javascript">
+  // need to make plugin like syntax for external users
+  document.addEventListener('DOMContentLoaded', function () {
+    // user provided elements
+    setUpFileSelector('fileSelector');
+    setUpFileSelector('fileSelector2');
+
+    initializeEditor();
+    
+    //crop elements
+    var canvas;
+    var context;
+    var image;
+
+    const imageEditorCont = getElement('imageEditorCont');
+    const imageEditor = getElement('imageEditor');
+
+    function getElement(id){
+      return document.getElementById(id);
+    }
+
+    function stopBubbling(event){
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    function createElement(el){
+      return document.createElement(el);
+    }
+
+    function setUpFileSelector(elId){
+      const ele = getElement(elId);
+      ele.style.position = 'fixed';
+      ele.style.top = '-100em';
+
+      const dragAreaDiv = createElement('div');
+      dragAreaDiv.innerHTML = `<div class="imageAreaInner" id="${elId}-drop">
+                                  <div class="fileSelectorUi">
+                                    Drop image here <br/>or<br/>
+                                    <button type="button"><label for="${elId}">Click to upload</label></button>
+                                  </div>
+                                </div>`;
+      dragAreaDiv.classList.add('imageArea');
+      ele.parentNode.insertBefore(dragAreaDiv, ele.nextSibling);
+
+      ele.addEventListener("change", function(){
+        setUpImage(elId, this.files);
+      }, false);
+      setUpDropArea(elId);
+    }
+
+    function setUpDropArea(elId){
+      const dragAreaObj = getElement(`${elId}-drop`);
+      dragAreaObj.addEventListener('drop', (event) => {
+        stopBubbling(event);
+        setUpImage(elId, event.dataTransfer.files);
+      });
+      dragAreaObj.addEventListener('dragover', (event) => {
+        stopBubbling(event);
+        setUpImage(elId, event.dataTransfer.files);
+      });
+    }
+
+    function closeEditor(elId, event){
+      stopBubbling(event);
+      const fileSel = getElement(elId);
+      imageEditor.innerHTML = '';
+      fileSel.value = "";
+
+      if(!/safari/i.test(navigator.userAgent)){
+        fileSel.type = ''
+        fileSel.type = 'file'
+      }
+      imageEditorCont.style.display = 'none';
+    }
+
+    function setUpImage(elId, fileList) {
+      for (const file of fileList) {
+        displayImage(elId, file);
+      }
+    }
+
+    function displayImage(elId, file){
+      const dropArea = getElement(`${elId}-drop`);
+      const img = createElement("img");
+      img.src = URL.createObjectURL(file);
+      img.onload = function() {
+        URL.revokeObjectURL(this.src);
+      }
+
+      const anchor = createElement("a");
+      anchor.classList.add('trashBtn');
+      anchor.classList.add('imgEditBtns');
+      anchor.onclick = function(event){
+        stopBubbling(event);
+        closeEditor(elId, event);
+        dropArea.innerHTML=`<div class="fileSelectorUi">
+                              Drop image here <br/>or<br/>
+                              <button type="button"><label for="${elId}">Click to upload</label></button>
+                            </div>`;
+      }
+
+      const btnEdit = createElement("a");
+      btnEdit.classList.add('editBtn');
+      btnEdit.classList.add('imgEditBtns');
+      btnEdit.onclick = function(event){
+        stopBubbling(event);
+        editImage(elId, file);
+      }
+
+      const div = createElement("div");
+      div.id = 'editBtnContainer';
+      div.appendChild(btnEdit);
+      div.appendChild(anchor);
+
+      dropArea.innerHTML='';
+      dropArea.appendChild(div);
+      dropArea.appendChild(img);
+    }
+
+    function editImage(elId, file) {
+      if (file.type && file.type.indexOf('image') === -1) {
+        console.log('File is not an image.', file.type, file);
+        return;
+      }
+
+      imageEditorCont.setAttribute('data-id', elId);
+      const reader = new FileReader();
+      reader.onload = function(e) {
+          image = new Image();
+          image.src = e.target.result;
+          image.onload = initCrop;
+          imageEditorCont.style.display = 'block';
+        }
+      reader.readAsDataURL(file);
+    }
+
+    function initCrop() {
+      imageEditor.innerHTML = '<canvas id="canvas">';
+      canvas = getElement('canvas');
+      context = canvas.getContext("2d");
+      canvas.width = image.width;
+      canvas.height = image.height;
+      context.drawImage(image, 0, 0);
+     
+      cropper = new Cropper(canvas, {
+        viewMode: 0,
+        dragMode: 'crop',
+        responsive: true,// Re-render the cropper when resize the window
+        modal: true,// Show the black modal
+        guides: false,
+        center: true,
+        highlight: true,
+        background: false,
+        autoCrop: false,
+        autoCropArea: 0.8,
+        movable: false,
+        zoomOnWheel: false,
+        zoomOnTouch: false,
+        data: null,// An object with the previous cropping result data
+      });
+    }
+
+    getElement('cropbutton').addEventListener('click', (event) => {
+      var cropperCanvas = cropper.getData();
+      canvas.width = cropperCanvas.width;
+      canvas.height = cropperCanvas.height;
+
+      image = new Image();
+      image.src = cropper.getCroppedCanvas().toDataURL();
+      image.onload = initCrop;
+      context.drawImage(image, 0, 0);
+    });
+
+    let croperMem = {
+      scaleX: 1,
+      scaleY: 1,
+    };
+
+    getElement('zoomInbutton').addEventListener('click', (event) => {
+      cropper.zoom(0.1);
+    });
+    getElement('zoomOutbutton').addEventListener('click', (event) => {
+      cropper.zoom(-0.1);
+    });
+
+    getElement('rotatebutton').addEventListener('click', (event) => {
+      cropper.rotate(90);
+    });
+    getElement('rotateLeftbutton').addEventListener('click', (event) => {
+      cropper.rotate(-90);
+    });
+
+    getElement('hflipbutton').addEventListener('click', (event) => {
+      cropper.scaleX(croperMem.scaleX == 1 ? '-1' : 1);
+      croperMem.scaleX = croperMem.scaleX == 1 ? '-1' : 1;
+    });
+
+    getElement('vflipbutton').addEventListener('click', (event) => {
+      cropper.scaleY(croperMem.scaleY == 1 ? '-1' : 1);
+      croperMem.scaleY = croperMem.scaleY == 1 ? '-1' : 1;
+    });
+
+    getElement('closeEditorBtn').addEventListener('click', (event) => {
+      closeEditor(imageEditorCont.getAttribute('data-id'), event);
+    });
+
+    getElement('finishImageBtn').addEventListener('click', (event) => {
+      const ele = imageEditorCont.getAttribute('data-id');
+      const divEle = getElement(`${ele}-drop`);
+      if(divEle){
+        divEle.getElementsByTagName('img')[0].src = URL.createObjectURL(dataURItoBlob(cropper.getCroppedCanvas().toDataURL()));
+        closeEditor(imageEditorCont.getAttribute('data-id'), event);
+      }
+    });
+
+    function dataURItoBlob(dataURL) {
+      var BASE64_MARKER = ';base64,';
+      if (dataURL.indexOf(BASE64_MARKER) == -1) {
+        var parts = dataURL.split(',');
+        var contentType = parts[0].split(':')[1];
+        var raw = decodeURIComponent(parts[1]);
+
+        return new Blob([raw], {
+          type: contentType
+        });
+      }
+      var parts = dataURL.split(BASE64_MARKER);
+      var contentType = parts[0].split(':')[1];
+      var raw = window.atob(parts[1]);
+      var rawLength = raw.length;
+      var uInt8Array = new Uint8Array(rawLength);
+      for (var i = 0; i < rawLength; ++i) {
+        uInt8Array[i] = raw.charCodeAt(i);
+      }
+
+      return new Blob([uInt8Array], {
+        type: contentType
+      });
+    }
+
+    function initializeEditor(){
+      if(!getElement('imageEditorCont')){
+        const divEl = createElement('div');
+        divEl.id = 'imageEditorCont';
+        divEl.innerHTML = `<div class="imageEditorBtns">
+                <a id="cropbutton" title="Crop"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABLUlEQVRIS93VvS5EQRjG8d8WKBUqRFQKSgnRKCQkhFpEKS5A4Q6UolRKaLU0FEouQKMgIhEaROGjICEjZ2Vysnt2Nnu2YKpJ5pnn/37NORVtXpU2+/vfgGXs8ZPlLlYLyhk0WzjBYawrKtE6NjPxEWbrAILHNsYwg+ciQA/W0IFxTGXia+zXAQTtHXby5kGfz2A+n2LilA3jopY2D1jAQaJpLEsG9GMDnQiXRjOX+6yBVdNQlsWIkAyIo6rV5GpDu7BSNmAum5YJTOOxTMAxrlA1f8JXmYBPnGeRB/OwSgUEwzd8RFF3R/uXbB80I3H5Ul9yM5M7hMvqhXYABnCbAujFYEHoZ9HZEm7wmvXq96iV/0HLTW5U91P04R2TeEj5FjUybfq8lRIlwf4+4Bu93j0ZwFDE5AAAAABJRU5ErkJggg==" /></a>
+                <a id="zoomInbutton" title="Zoom In"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAACcUlEQVRIS82VW4hPYRTFf+tMQzwoyaWGksbgRSiSXMILmnJJITwpeZBSCjW5NOWWUjxIamK8SCZehOSS64NCSaY8UO6aEk0ug7O0df7TmfGfOSOmfE/n7PN9a3177bX3Eb281Mv4/AlBJbA0SZJa22OBvsBL2zeA48DzcpftKcEMSceAUV1k3CZpb5qmO4Ef+T09IVgk6RQQGbRKOpmm6W3gM1AjaQUQGcVqsr0sT1JEMEbSPaA/cN32cuB1pywSYJOkPYBs7wAik1+rWwJJZ4GFwEPbU4FP2bl4Hg8cBZzFtkjaDXy1HVK+KiIYKik2JbbnAlfabyU9Aaptz4rMsniFpMfAaNubgX1FBEskNQFvbQ/LQGoy3aPgg2xvB24CVyOTJEnqbdcB52zXFhGsl3QIuGV7OtBPUktWjw5lsL0GaABWS2oEHtieWESwVtIR4L7tSVEvSaeBeB4BVADvgBbbKwMUWCfpMHDH9rQigvB+6NtmewjwIVeDF0CV7XnAxVI8SZITtldJakjTNLLq1kWVkl4Cg21vA+pzBGeAObYnAE+z+EhJzdHhthcD4cDCUVEnKYAjiwXA5Zz4fSKevQ+QdAmYAjyyHRZOiwiGSwp3VGcgQbILOAi8z2LRZPMlHQh7Al9szwTuFjVaZ/C8a74DIUU0XYAOzD5+zMbEhfzmcp1cDrzZdqOkDUCpJ0o436Jf0jTdCjzr4N8yNegKfDbwJrPmZGAcEDUIN8XgK0nWGb9DkaskXctpHpvj5iXw3w73JNAuUW6wlc79NXgHF0k6D0Tj/JObl3NRzP79klrTNN2Yad4TFbrdU/TD+f8JfgL7IOwZdlBpFQAAAABJRU5ErkJggg==" /></a>
+                <a id="zoomOutbutton" title="Zoom Out"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAACPElEQVRIS72US4iOYRiGr/ubhlgoC4diITHYKIoklGzQlEMKYaVkIaUUappoyimlWMhmYmwkUzai5NAIC4WSzFIxDqVE4zR4bz3T9+ub3z/zDWO8q7//e7qv937e+3nEMB8Nsz5/AqgH1mVZ1mh7JjAS6LJ9GzgLPK912cECFks6A0ztx3GPpCMppQPAj2LNYACrJV0AwkG3pPMppbvAZ6BB0kYgHMVpt72+CCkDzJD0ABgNdNjeALyqcpEBuyUdBmR7PxBOes+AAEmXgFXAY9sLgE8DhGKvpEPAV9vRypdlgAmSoiizvQy4UZK4OklPgem29wBHywBrJbUDb2xPzMUbou9VoHB1E3CWZS22m4DLthvLADsknQTu2F4EjJL0Nn+PPgzbW4FWYIukNuCR7TllgG2STgMPbc+N95J0Eej9XSB8tL0pRIHtkk4B92wvLANE9juAHtvjgfdlU59l2TnbmyW1ppTC1YApqpfUBYyz3Qy0lACmSOqMCbe9BogElq6KJkkhHC5WAtf7gYyRdA2YDzyxPRtIZYDJkiId03LRgBwETgDv8v9iyFZIOh7xBL7YXgLcLxu0avHixb8D0YqIZ4iOzT9+yNfE1WJxrUmuJd5pu03STqAyExWdbzEvKaV9wLPqFlYD+hNfCrwG6oB5wCxgBPACiMVXadlvT1QETJJ0q9DzKI6bV8TLUlrz+y9AYbFVCocs3idFkq4Ay3P1fyJeHdPY/cckdaeUduU9/6u2lKVoyKL/FfATmuXVGQsl7hAAAAAASUVORK5CYII=" /></a>
+                <a id="rotateLeftbutton" title="Rotate Left"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABgUlEQVRIS9VVPU8CQRB9c9eYGITOAjqDNMbgR+Et/AZM/ANK4UenRn+GiVKYoCZYamsjPwBzXKWRQuNHJxRSaqMFM2Y1yF2C8TzuCrfb7M57O29m3hLcS4Rw1EpjOfkAIvGcBdzQd5wGLzd3AVmHaWSwkroPiOkJ+yJwg4NKWEtthpeBC3zo5fl05nz7kDodv/K8MvOTbdvtn7Il7DezMPjK6LzdzZ0UMxC/2D1IImowcyWRSJSr1eq7m4zc8gTIIMbM4wAWACgAj6ZpztdqtZsuSVg1IKXUIoCSrigzW47j3GqSULtIKTUG4BJAOx6PT2i5egTdbjpoTWI12QjaRUqpIoCKiGzU6/WSlyCMxge0XBcAhm3bzkZBAKXUFoAdAKOREORyuYKInBmGMfs/CaKWKNoiR9qmvw9a8DnQsiwB2OtnFZTP56cBxP6KLyIjIpJ2mx0zF7o+9OlFlmVNEZH2j0HWtYgc97drIHAGAHx8OIO820dsJJPs/dF8vGKQKx9dwMtvbMpV4wAAAABJRU5ErkJggg==" /></a>
+                <a id="rotatebutton" title="Rotate Right"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABlElEQVRIS7VVu04CQRQ9dyik0RILtPORWGDEClgSWiystcREpZKY+BkatfNR+PgAE+MvwA2FFj4aJHZQ2IFaKMnOmDGuWUT2EYdt99xz5sw99w7B1KcU4bg5idV4HUTKoSVT/DhqTMGWNYD2URzbdETMCWgHB41dQJXcIp4C6XQ6JoQYBzAcxKmKROhmYXvtfWR0yRHpEcjn80OtVqsohFhRSiWCEHdhiFBdPqnJSHQaUsx1CWSz2Rnbti8BTABgABdCiEcAr0GEPB18k2tSIqKNSqVyDuAnDb4CXj3I5XLRTqdzDyAGIMnMT76EvwFeKUqlUiUi2gNQYObT0OS6QDs4bCawHr/rmYNMJnOrlHpjZivUtQQ4CekoAngGsMXMOwFqQkHIsqx5KeW1EGKxXC5fhaoOAB68wMCvSLscaJO1gJGY9unH16rQ+6fdbj/8a9C8BPQ/96oAUGLmMxMz4bvsiKhORC8BEtkFkVJ+MHO177omogKA2bDEbrxSKmn0wXGT93XwnxP/VWvuTfZLkemTO3yfKUDCnnblVOkAAAAASUVORK5CYII=" /></a>
+                <a id="hflipbutton" title="Flip Horizontal"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABFElEQVRIS+3Uu0rEUBSF4W8QxELsBAux8gF8AMVOFAvxAloJgqXVvIetlYK9IlbesFIfwNJatLPw0oggysEEJJyTTJQwzaQ8e2f9Z63snZaGn1bD+nqAyoS7HlE/hvCUuOowXvCRslLmYADHeMBmQmAPI1jGe6wnBcjFBzGHtwQguDvDM5ZikBigU/GcGSCneMViEVIE1BWvhBQB15jELT4jsYziC4+RWh8mcIXpvF4EzGcfdhs3EZGx7Ow+UptCGws4SQHC+SwOsYGDyk36aVhFmKgwTee/30lNUR3IGnZj4gFUtgc5ZB1HCScr2M9G9KLOHuS9MxjHTgKwhTtc/mWTO4y/vK3rP7t/u+g5qIyw8Yi+Aaq4MBlE8avrAAAAAElFTkSuQmCC"/></a>
+                <a id="vflipbutton" title="Flip Vertical"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABIklEQVRIS9XUuy4FQRgH8N/phIgn0dAoKHTiNC5RiIJ34AUkCqUnUDtxiVC4dDoUGm+hRKEgZJKZRNZlZk6yCdvsbjLz/8038+12tHx1Ws5XCwzEBb2ULqwGCOH3MXgURUgpEMKPMY533GGuBCkBUvhQrOAVY3jCfA7JASl8ELPYQgA2cYZHLPyG5IATjKCLZ+xEYAPDEXmIyLfnngOWcRrDQ8BnILwHJOB7P3VVDmjOawLZbv1zwHU8g8ns0uOA2gp6EVhpC/h/Z3CLbRzFLWlWsIR1TPTbpjPYxxoOG99BCN/FIi77BcK8gBxgFVPxkG9KwsPk0i5KyBXeMJ1beaqoFEiVhB9cer4oadUaIAWH+3lJeM0WleZ9GVdbQTXUOvABjC1AGTuKKaUAAAAASUVORK5CYII="/></a>
+                <a id="finishImageBtn" title="Confirm"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABMElEQVRIS+3VvytFYRwG8M+1yGajZLIZKCaiDAYRBrNJXclEFjZFZovBovwDGESUwWQQf4Ef2WSwCQN669y6nY57zr333EXOcs7pfb/P8z7P98db0OCn0GB8/wRxh3uxhfHSQp4WteIa51jIm6AJh2jHMD7yJljDMvrwVO5bHhaN4gQTOIsnpV6CTtxgGxtJPVUPQTMu8YIpfOVNsIMx9OP1t4lQq4JZ7GIQt5XGTZygC/f4rhDUgyssYi9tlpUThO9nHGMenwnBpWa6QDENPKzHFXRHBA+YiXkbmukAHRjCey0EIaYNRwinDbV9FwGtYiVK6mMW8CQFpbgW7GME0wj/p5iM3lnxK94HwZJNLOEtaqb1zMjRxixlOoeBKKmJzVRNmVZ7wNT9WRSkgvxtBT+KtywZOtz9DAAAAABJRU5ErkJggg==" /></a>
+                <a id="closeEditorBtn" title="Close Editor"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAuUlEQVRIS92Vyw3CQBBDX1qhE1oJ3BGVoNwTWqETWgFNxEqraBP7wIhPbht57JHtbDqSny6Zn/8U2AF74Ao8TAvDiR64Afd6pmXRARiBATgbIsFxAU7AEZiUQD2gRCR2LWQ5CHNByuari2y1aIvAIg+rVE1bRDEnNy85KIGyRE0Y7yJQlc+s4QgsReJskX+NwDKHt1qUGnJqTZ2eO5hmi6zBV88l9iOXXfp1bf4CPJj7JXtsDdTvCzwBYUNOGT8lhlIAAAAASUVORK5CYII=" /></a>
+              </div>
+              <div id="imageEditor"></div>`;
+        document.body.appendChild(divEl);
+      }
+    }
+});
+</script>
+</body>
+</html>

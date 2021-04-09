@@ -1,4 +1,4 @@
-# cruzer-crop
+# cropMan
 Client Side Image Editor which has currently following features
 
 - Crop Image

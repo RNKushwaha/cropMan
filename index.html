@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Image cropper</title>
+	<title>CropMan</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="Keywords" content="CruzerCrop, Client Side Image Editor, Drag and Drop Upload, Image Crop">
-  <meta name="Description" content="CruzerCrop, Client Side Image Editor, Drag and Drop Upload, Image Crop">
-  <link rel="stylesheet" type="text/css" href="cruzercrop.css">
+  <meta name="Keywords" content="CropMan, Client Side Image Editor, Drag and Drop Upload, Image Crop">
+  <meta name="Description" content="CropMan, Client Side Image Editor, Drag and Drop Upload, Image Crop">
+  <link rel="stylesheet" type="text/css" href="crop-man.css">
 	<style type="text/css">
     /* for demo only*/
   *, :after, :before, body {
@@ -24,7 +24,7 @@
 </head>
 <body>
 <form id="form">
-  <h1>CruzerCrop: Client Side Image Editor</h1>
+  <h1>CropMan: Client Side Image Editor</h1>
   <div class="fullWidth">
     <div class="halfWidth">
       <input id="fileSelector" class="cruzerImg" type="file" accept=".jpg, .jpeg, .png"/>
@@ -40,7 +40,7 @@
 </form>
 
 <script src="cropper.min.js"></script>
-<!-- <script src="cruzercrop.js"></script> -->
+<!-- <script src="crop-man.js"></script> -->
 
 <script type="text/javascript">
   // need to make plugin like syntax for external users
@@ -172,13 +172,13 @@
       reader.onload = function(e) {
           image = new Image();
           image.src = e.target.result;
-          image.onload = initCrop;
+          image.onload = initCropMan;
           imageEditorCont.style.display = 'block';
         }
       reader.readAsDataURL(file);
     }
 
-    function initCrop() {
+    function initCropMan() {
       imageEditor.innerHTML = '<canvas id="canvas">';
       canvas = getElement('canvas');
       context = canvas.getContext("2d");
@@ -211,7 +211,7 @@
 
       image = new Image();
       image.src = cropper.getCroppedCanvas().toDataURL();
-      image.onload = initCrop;
+      image.onload = initCropMan;
       context.drawImage(image, 0, 0);
     });
 

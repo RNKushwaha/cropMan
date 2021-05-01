@@ -1,7 +1,7 @@
 # cropMan
 Client Side Image Editor which has currently following features
 
-- Crop Image
+- Crop
 - Rotate
 - Scale horizontaly & verticaly
 - Zoom In

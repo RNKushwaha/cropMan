@@ -10,3 +10,5 @@ Client Side Image Editor which has currently following features
 - Full Page Editor
 - Without jQuery
 - Very small in size
+
+More features coming soon.
